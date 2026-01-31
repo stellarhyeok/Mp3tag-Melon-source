@@ -1,97 +1,95 @@
 [Include]=&Melon#.inc
-[IndexUrl]=https://www.melon.com/search/song/index.htm?section=all&searchGnbYn=Y&kkoSpl=&kkoDpType=&q=
+[IndexUrl]=https://www.melon.com/search/song/index.htm?section=all&searchGnbYn=Y&kkoSpl=N&kkoDpType=RESULT&q=
 [AlbumUrl]=https://www.melon.com/song/detail.htm?songId=
-[IndexFormat]=%_url%|%Title%|%Artist%|%_preview%|%Album%
+[IndexFormat]=%_url%|%Title%|%Artist%|%Album%
 [SearchBy]=Title||%title%||%s||Artist||%artist%||+%s
 
 [ParserScriptIndex]=...
-# ###################################################################
-# This script parses the webpage for all releases
-# by this albumname.
-#
-# The output format is defined by IndexFormat above, which
-# is used by the selection dialog
-# ###################################################################
+# 이 부분은 곡에 대한 웹페이지 검색 결과를 파싱합니다.
+# 출력 형식은 상단의 [IndexFormat]에 정의되어 있습니다.
+# 검색결과가 여러개일 경우, '검색 결과의 목록...' 대화상자에 표시됩니다.
+
+# 디버깅 용 코드
 #debug "on" "debug_melon_search_song.txt"
 #debugWriteInput "debug-input_melon_search_song.html"
 
-FindLine "<tbody>"
+# 곡 검색 루프 진입
+FindLine "<tr "
+
 Do
-  # _url
-  FindLine "melon.link.goSongDetail"
-  Unspace
-  FindInLine "melon.link.goSongDetail('"
+  # %_url%: 곡 세부정보 멜론 링크(미리보기 버튼)
+  FindLine "goSongDetail"
+  FindInLine "goSongDetail('"
   SayUntil "');"
-  KillTag "a"
   Say "|"
 
-  # Title
+  # %Title%: 곡명(재생불가능한 곡 포함)
+  # 다음 위치 탐색을 위해 태그 제거
+  KillTag "a"
   FindLine "title="
-  KillTag "span"
-  RegexpReplace "<[^>]+>" ""
+  # 중복 데이터 제거
+  RegexpReplace "(<span[^>]*title=\"[^\"]+\">|<[^>]+>)" ""
   Unspace
   SayRest
   Say "|"
 
-  # Artist/Multiple Artists/Various Artists
+  # %Artist%: 아티스트(단독, 다수, Various Artists)
+  # 여러 아티스트가 여러 줄에 나뉘어 있을 수 있으므로 Join
   FindLine "artistName"
   FindLine "<div"
   JoinUntil "</div>"
-  RegexpReplace "<span.*" ""
-  RegexpReplace "<[^>]+>" ""
+  # 중복 데이터 제거
+  RegexpReplace "(<span[^>]*class=\"checkEllipsis[^>]*>.*?</span>|<[^>]+>)" ""
   Unspace
   SayRest
   Say "|"
 
-  # _preview
+  # %Album%: 앨범
   FindLine "goAlbumDetail"
-  Say "https://www.melon.com/album/detail.htm?albumId="
-  Unspace
-  FindInLine "goAlbumDetail('"
-  SayUntil "');"
-  Say "|"
-
-  # Album
   RegexpReplace "<[^>]+>" ""
+  Unspace
   SayRest
-  SayNewLine
-  
+
+  # 다음 루프 이동 (에러 방지: 1 1)
   FindLine "<tr " 1 1
   Unspace
+
+  If "<tr "
+    SayNewLine
+  Endif
 While "<tr "
 
 [ParserScriptAlbum]=...
-# ###################################################################
-# This script parses the albums page for all common information.
-#
-# The current output variable is set via the outputto command
-# All these fields are used by the confirm online information dialog
-# ###################################################################
+# 이 스크립트는 곡 정보 페이지를 파싱하여 모든 정보를 추출합니다.
+# 현재 출력 변수는 OutputTo 명령어를 통해 설정됩니다.
+# 수집된 모든 필드는 '태그 정보 조정' 대화상자에서 사용됩니다.
+
+# 디버깅 용 코드
 #debug "on" "debug_melon_parse_song.txt"
 #debugWriteInput "debug-input_melon_parse_song.html"
 
-# CoverArt
+# coverurl: 앨범 커버
 FindLine "<meta property=\"og:image\""
-
-# ChangeSize
+# 고화질(1000px)로 변경
 RegexpReplace "(_)(\d+)(.jpg+)" "_1000.jpg"
-#RegexpReplace "(\w+\.\w+)\?.*" "$1"
-Unspace
 FindInLine "content=\""
 OutputTo "coverurl"
-SayUntil "\""
+# 쿼리 스트링(?...) 제거
+SayUntil ".jpg"
+Say ".jpg"
 
-# Title
-FindLine "<div id=\"conts"
+# Title: 곡명
+# 재생 불가능한 곡이 있을 수 있으므로 Join
 FindLine "song_name"
 JoinUntil "</div>"
-Replace "<strong class=\"none\">곡명</strong>" ""
-RegexpReplace "<[^>]+>" ""
+# 불필요한 텍스트 제거
+RegexpReplace "(<strong[^>]*class=\"none\"[^>]*>.*?</strong>|<[^>]+>)" ""
 Unspace
 OutputTo "Title"
 SayRest
 
-# Artist/Multiple Artists/Various Artists
+# Artist: 아티스트(단독, 다수, Various Artists)
+# 여러 아티스트가 여러 줄에 나뉘어 있을 수 있으므로 Join
 FindLine "artist"
 JoinUntil "</div>"
 RegexpReplace "<[^>]+>" ""
@@ -99,7 +97,7 @@ Unspace
 OutputTo "Artist"
 SayRest
 
-# Album
+# Album: 앨범명
 FindLine "goAlbumDetail"
 RegexpReplace "<[^>]+>" ""
 Unspace
@@ -108,20 +106,19 @@ SayRest
 
 FindLine "<dt>발매일</dt>"
 FindLine "<dd"
-Unspace
-# Year
-IfNot "-"
+RegexpReplace "[^\d]" ""
+IfGreater 0
   OutputTo "Year"
-  IfVar "useDate" "false"
-    RegexpReplace "<[^>]+>" ""
-    SayUntil "."
-  else
-    RegexpReplace "[^0-9]" ""
+  # Year: 발매일(20220101 형식)
+  IfVar "useDate" "true"
     SayRest
-  endif
-endif
+  Else
+    # Year: 발매년도
+    SayRegexp "^\d{4}"
+  EndIf
+Endif
 
-# Genre
+# Genre: 장르
 FindLine "<dt>장르</dt>"
 FindLine "<dd"
 RegexpReplace "<[^>]+>" ""
@@ -129,65 +126,50 @@ Unspace
 IfNot "-"
   OutputTo "Genre"
   SayRest
-endif
+EndIf
 
-# Lyrics
-FindLine "section_lyric"
+# Unsyncedlyrics: 비동기 가사
 FindLine "<div class=\"lyric"
 Unspace
 If "<div class=\"lyric\""
   JoinUntil "</div>"
-  RegexpReplace "<[bB][rR]>" "\r\n"
+  # 줄바꿈 처리(Mac)
+  IfVar "isMac" "true"
+    RegexpReplace "(?i)<br\s*/?>" "\n"
+  # 줄바꿈 처리(Windows)
+  Else
+    RegexpReplace "(?i)<br\s*/?>" "\r\n"
+  EndIf
   RegexpReplace "<[^>]+>" ""
+  Unspace
   OutputTo "Unsyncedlyrics"
   SayRest
-endif
+EndIf
 
-FindLine "<!-- 작사 / 작곡"
-MoveLine 2
+# 작사가/작곡가 탐색 (에러 방지: 1 1)
+FindLine "list_person clfix" 1 1
 Unspace
-IfNot "<!-- //작사 / 작곡"
-  MoveLine 7
-  Unspace
-  # Lyricist/Multiple Lyricists 
-  IfNot "<!-- 작곡가 정보"
-    OutputTo "Lyricist"
-    Do
-      FindLine "li"
-      FindLine "작사"
-      MoveLine -3
-      RegexpReplace "<[^>]+>" ""
-      Unspace
-      SayRest
-      
-      FindLine "</li>"
-      MoveLine 2
-      Unspace
-      If "<li>"
-        Say ", "
-      endif
-    While "<li>"
-  endif
 
-  # Composer/Multiple Composers
-  FindLine "<!-- 작곡가 정보"
-  Unspace
-  If "<!-- 작곡가 정보"
-    OutputTo "Composer"
-    Do
-      FindLine "li"
-      FindLine "작곡"
-      MoveLine -3
-      RegexpReplace "<[^>]+>" ""
-      Unspace
-      SayRest
+If "<ul class=\"list_person clfix"
+  # 작사가/작곡가 정보 모두 Join
+  JoinUntil "<!-- 편곡가 정보"
+  # HTML 태그 주석 표준화
+  RegexpReplace "<!--\s*(작사가|작곡가|편곡가)\s*정보\s*-->" "<!-- $1 정보 -->"
+  # HTML 태그 사이 공백 제거
+  RegexpReplace ">\s*<" "><"
+  RegexpReplace "<span[^>]*>작(사|곡)</span>" ", "
+  # 주석(<!--)을 제외한 나머지 태그 삭제
+  RegexpReplace "<(?!!--)[^>]*>" ""
+  # 마지막 콤마 제거
+  RegexpReplace ",\s*(?=<!--)" ""
 
-      FindLine "</li>"
-      MoveLine 2
-      Unspace
-      If "<li>"
-        Say ", "
-      endif
-    While "<li>"
-  endif
-endif
+  # Lyricist: 작사가
+  FindInLine "<!-- 작사가 정보 -->"
+  OutputTo "Lyricist"
+  SayUntil "<!-- 작곡가 정보 -->"
+
+  # Composer: 작곡가
+  FindInLine "<!-- 작곡가 정보 -->"
+  OutputTo "Composer"
+  SayUntil "<!-- 편곡가 정보 -->"
+EndIf
