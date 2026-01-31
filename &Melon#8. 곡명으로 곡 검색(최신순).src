@@ -1,7 +1,7 @@
 [Include]=&Melon#.inc
 [IndexUrl]=https://www.melon.com/search/song/index.htm?section=song&searchGnbYn=Y&kkoSpl=N&kkoDpType=RESULT&sort=date&q=
 [AlbumUrl]=https://www.melon.com/song/detail.htm?songId=
-[IndexFormat]=%_url%|%Title%|%Artist%|%_preview%|%Album%
+[IndexFormat]=%_url%|%Title%|%Artist%|%Album%
 [SearchBy]=Title||%title%||%s
 
 [ParserScriptIndex]=...
