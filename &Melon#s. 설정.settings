@@ -8,6 +8,13 @@
 		"title": "발매일 사용(20220101로 출력)",
 		"description": "해제할 경우 발매연도로 출력됩니다",
 		"default": false
+	},
+	{
+		"type": "bool",
+		"key": "isMac",
+		"title": "Mac 전용 옵션(가사 출력시 Mac형식 줄바꿈 사용)",
+		"description": "OS가 Mac인 경우에 체크하세요",
+		"default": false
 	}
 	]
 }
