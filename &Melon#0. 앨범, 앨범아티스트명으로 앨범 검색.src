@@ -1,109 +1,113 @@
 [Include]=&Melon#.inc
-[IndexUrl]=https://www.melon.com/search/album/index.htm?section=all&searchGnbYn=Y&kkoSpl=N&kkoDpType=&q=
+[IndexUrl]=https://www.melon.com/search/album/index.htm?section=all&searchGnbYn=Y&kkoSpl=N&kkoDpType=RESULT&q=
 [AlbumUrl]=https://www.melon.com/album/detail.htm?albumId=
-[IndexFormat]=%_url%|%_preview%|%Album%|%Artist%|%Title%|%Released%|%Tracks%
+[IndexFormat]=%_coverurl%|%_url%|%Album%|%Artist%|%Title%|%Released%|%Tracks%
 [SearchBy]=Album||%album%||%s||Albumartist||%albumArtist%||+%s
 
 [ParserScriptIndex]=...
-# ###################################################################
-# This script parses the webpage for all releases
-# by this albumname.
-#
-# The output format is defined by IndexFormat above, which
-# is used by the selection dialog
-# ###################################################################
+# 이 부분은 앨범에 대한 웹페이지 검색 결과를 파싱합니다.
+# 출력 형식은 상단의 [IndexFormat]에 정의되어 있습니다.
+# 검색결과가 여러개일 경우, '검색 결과의 목록...' 대화상자에 표시됩니다.
+
+# 디버깅 용 코드
 #debug "on" "debug_melon_search_album.txt"
 #debugWriteInput "debug-input_melon_search_album.html"
 
-FindLine "<li class=\"album11_li\""
+# 앨범 검색 루프 진입
+FindLine "<li class=\"album11_li\">"
+
 Do
-  # _url
-  FindLine "<dt"
+  # %_coverurl%: 앨범 커버 URL
+  FindLine "WEBPOCIMG.defaultAlbumImg"
+  FindInLine "src=\""
+  # 쿼리 스트링(?...) 제거
+  SayUntil ".jpg"
+  Say ".jpg"
+  Say "|"
+
+  # %_url%: 앨범 세부정보 멜론 링크(미리보기 버튼)
+  # ID 추출
   FindLine "goAlbumDetail"
-  Unspace
   FindInLine "goAlbumDetail('"
   SayUntil "');"
   Say "|"
 
-  # _preview
-  Say "https://www.melon.com/album/detail.htm?albumId="
+  # %Album%: 앨범명
+  # 태그 정리
+  RegexpReplace "(<[^>]+>)" ""
   Unspace
-  FindInLine "goAlbumDetail('"
-  SayUntil "');"
-  Say "|"
-
-  # Album
-  RegexpReplace "<[^>]+>" ""
   SayRest
   Say "|"
-  
-  # Artist/Multiple Artists/Various Artists
+
+  # %Artist%: 앨범 아티스트(단독, 다수, Various Artists)
+  # 여러 아티스트가 여러 줄에 나뉘어 있을 수 있으므로 Join
   FindLine "atistname"
   FindLine "<div"
   JoinUntil "</div>"
-  RegexpReplace "<span.*" ""
-  RegexpReplace "<[^>]+>" ""
+  # 중복 데이터 제거
+  RegexpReplace "(<span[^>]*class=\"checkEllipsis[^>]*>.*?</span>|<[^>]+>)" ""
   Unspace
   SayRest
   Say "|"
 
-  # Title
-  FindLine "btn_play"
-  FindLine "songname12"
-  RegexpReplace "<[^>]+>" ""
+  # %Title%: 타이틀 곡(재생불가능한 곡 포함)
+  FindLine "songname"
+  RegexpReplace "(<[^>]+>)" ""
   Unspace
   SayRest
   Say "|"
 
-  # Released
+  # %Released%: 발매일
   FindLine "cnt_view"
   RegexpReplace "<[^>]+>" ""
   Unspace
   SayRest
   Say "|"
 
-  # Tracks
+  # %Tracks%: 앨범 곡 수
   FindLine "tot_song"
-  RegexpReplace "<[^>]+>" ""
-  Unspace
-  SayRegexp "[0-9]+"
-  SayNewLine
+  # 숫자만 추출
+  SayRegexp "\d+"
 
+  # 다음 루프 이동 (에러 방지: 1 1)
   FindLine "<li class=\"album11_li\">" 1 1
   Unspace
-While "<li class=\"album11_li\""
+
+  If "<li class=\"album11_li\">"
+    SayNewLine
+  Endif
+While "<li class=\"album11_li\">"
 
 [ParserScriptAlbum]=...
-# ###################################################################
-# This script parses the albums page for all common information.
-#
-# The current output variable is set via the outputto command
-# All these fields are used by the confirm online information dialog
-# ###################################################################
+# 이 스크립트는 앨범 정보 페이지를 파싱하여 모든 정보를 추출합니다.
+# 현재 출력 변수는 OutputTo 명령어를 통해 설정됩니다.
+# 수집된 모든 필드는 '태그 정보 조정' 대화상자에서 사용됩니다.
+
+# 디버깅 용 코드
 #debug "on" "debug_melon_parse_album.txt"
 #debugWriteInput "debug-input_melon_parse_album.html"
 
-# CoverArt
+# coverurl: 앨범 커버
 FindLine "<meta property=\"og:image\""
-
-# ChangeSize
+# 고화질(1000px)로 변경
 RegexpReplace "(_)(\d+)(.jpg+)" "_1000.jpg"
-#RegexpReplace "(\w+\.\w+)\?.*" "$1"
-Unspace
 FindInLine "content=\""
 OutputTo "coverurl"
-SayUntil "\""
+# 쿼리 스트링(?...) 제거
+SayUntil ".jpg"
+Say ".jpg"
 
-# Album
+# Album: 앨범명
 FindLine "song_name"
 JoinUntil "</div>"
-Replace "<strong class=\"none\">앨범명</strong>" ""
-RegexpReplace "<[^>]+>" ""
+# 불필요한 텍스트 제거
+RegexpReplace "(<strong[^>]*class=\"none\"[^>]*>.*?</strong>|<[^>]+>)" ""
 Unspace
 OutputTo "Album"
 SayRest
 
-# AlbumArtist/Multiple Artists/Various Artists
+# AlbumArtist: 앨범 아티스트(단독, 다수, Various Artists)
+# 여러 아티스트가 여러 줄에 나뉘어 있을 수 있으므로 Join
 FindLine "artist"
 JoinUntil "</div>"
 RegexpReplace "<[^>]+>" ""
@@ -113,20 +117,19 @@ SayRest
 
 FindLine "<dt>발매일</dt>"
 FindLine "<dd"
-Unspace
-# Year
-IfNot "-"
+RegexpReplace "[^\d]" ""
+IfGreater 0
   OutputTo "Year"
-  IfVar "useDate" "false"
-    RegexpReplace "<[^>]+>" ""
-    SayUntil "."
-  else
-    RegexpReplace "[^0-9]" ""
+  # Year: 발매일(20220101 형식)
+  IfVar "useDate" "true"
     SayRest
-  endif
-endif
+  Else
+    # Year: 발매년도
+    SayRegexp "^\d{4}"
+  Endif
+Endif
 
-# Publisher
+# Publisher: 발매사
 FindLine "<dt>발매사</dt>"
 FindLine "<dd"
 RegexpReplace "<[^>]+>" ""
@@ -134,51 +137,58 @@ Unspace
 IfNot "-"
   OutputTo "Publisher"
   SayRest
-endif
+Endif
 
+# 수록곡 탐색 루프 진입
 FindLine "<tr data-group-items=\""
-Unspace
+
 Do
-  # DiscNumber
-  FindInLine "<tr data-group-items=\"cd"
+  # DISCNUMBER: 디스크 번호
+  FindInLine "cd"
   OutputTo "discTemp"
-  SayUntil "\""
+  # 숫자만 추출(cd1 -> 1)
+  SayRegexp "\d+"
   Say "|"
 
-  # Track
+  # Track: 트랙
   FindLine "<span class=\"rank"
-  RegexpReplace "<[^>]+>" ""
-  Unspace
   OutputTo "trackTemp"
-  SayUntil "위"
+  # 숫자만 추출
+  SayRegexp "\d+" 
   Say "|"
 
-  # Title
+  # Title: 곡
+  # 재생 불가능한 곡이 있을 수 있으므로 Join
   FindLine "wrap_song_info"
   JoinUntil "</div>"
-  RegexpReplace "<span class=\"none\">(Title|HOT|19금)</span>" ""
-  RegexpReplace "<[^>]+>" ""
+  # (Title|HOT|19금) 뱃지 제거
+  RegexpReplace "(<span[^>]*class=\"none\"[^>]*>.*?</span>|<[^>]+>)" ""
   Unspace
   OutputTo "titleTemp"
   SayRest
   Say "|"
 
-  # Artist/Multiple Artists/Various Artists
+  # Artist: 아티스트(단독, 다수, Various Artists)
+  # 여러 아티스트가 여러 줄에 나뉘어 있을 수 있으므로 Join
   FindLine "ellipsis rank02"
   JoinUntil "</div>"
-  RegexpReplace "<span.*" ""
-  RegexpReplace "<[^>]+>" ""
+  # 중복 데이터 제거
+  RegexpReplace "(<span[^>]*class=\"checkEllipsis[^>]*>.*?</span>|<[^>]+>)" ""
   Unspace
   OutputTo "artistTemp"
   SayRest
   Say "|"
 
+  # tracks 배열 저장
   OutputTo "tracksTemp"
   Say "|"
+
+  # 다음 루프 이동 (에러 방지: 1 1)
   FindLine "<tr data-group-items=\"" 1 1
   Unspace
 While "<tr data-group-items=\""
 
+# 출력
 OutputTo "DISCNUMBER"
 SayOutput "discTemp"
 OutputTo "Track"
@@ -190,6 +200,7 @@ SayOutput "artistTemp"
 OutputTo "Tracks"
 SayOutput "tracksTemp"
 
+# 임시 변수 초기화
 Set "trackTemp"
 Set "titleTemp"
 Set "tracksTemp"
