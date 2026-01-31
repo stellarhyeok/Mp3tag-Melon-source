@@ -16,7 +16,7 @@
 
 ## 📦 설치 방법
 
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/dh-json/Mp3tag-Melon-source)](https://github.com/dh-json/Mp3tag-Melon-source/releases)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/stellarhyeok/Mp3tag-Melon-source?logo=github)](https://github.com/stellarhyeok/Mp3tag-Melon-source/releases)
 
 1. [Mp3tag](https://www.mp3tag.de/en/download.html) 최신 버전을 설치합니다.
 2. `Mp3tag-Melon-source.zip`의 압축을 풀고 `.src`, `.inc`, `.settings` 파일들을 아래 경로에 붙여넣으세요.
